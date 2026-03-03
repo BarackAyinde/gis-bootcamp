@@ -163,3 +163,62 @@ python -m unittest tests.test_spatial_join -v
 All 14 tests passing ✓
 
 ---
+
+### Day 4: Geometry Validation & Repair Tool ✓
+
+**What it does:**
+CLI tool that reads a vector dataset, detects invalid/empty/null geometries, attempts repairs using Shapely's `make_valid()`, and writes a cleaned dataset with detailed logs of all issues and fixes.
+
+**Inputs:**
+- Vector file with potentially invalid geometries
+- Optional `--drop` flag to remove unfixable geometries
+
+**Outputs:**
+- Cleaned vector file
+- Console report showing issues found and repair results
+
+**Code:**
+- `gis_bootcamp/geometry_validation.py` — main module
+- `tests/test_geometry_validation.py` — full test suite (14 test cases)
+
+**How to run:**
+
+Repair and keep unfixable geometries (default):
+```bash
+python -m gis_bootcamp.geometry_validation data/messy.gpkg -o output/cleaned.gpkg
+```
+
+Repair and drop unfixable geometries:
+```bash
+python -m gis_bootcamp.geometry_validation data/messy.gpkg -o output/cleaned.gpkg --drop
+```
+
+Verbose output with row-by-row logs:
+```bash
+python -m gis_bootcamp.geometry_validation data/messy.gpkg -o output/cleaned.gpkg -v
+```
+
+Run tests:
+```bash
+python -m unittest tests.test_geometry_validation -v
+```
+
+**What's tested:**
+- Valid geometry datasets (no issues)
+- Invalid geometries (self-intersecting polygons, etc.)
+- Null geometries (missing geometries)
+- Empty geometries (empty polygon/linestring)
+- Repair success (make_valid works)
+- Drop unfixable flag behavior
+- Keep unfixable default behavior
+- Output file creation
+- Output directory auto-creation
+- Attribute preservation
+- CRS preservation
+- File not found error handling
+- Empty dataset error handling
+- Missing geometry column error handling
+
+All 14 tests passing ✓
+
+---

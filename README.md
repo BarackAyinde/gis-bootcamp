@@ -94,6 +94,32 @@ python -m gis_bootcamp.spatial_join \
   -o output/result.gpkg -how right
 ```
 
+### Day 4: Geometry Validation & Repair Tool
+CLI tool to detect and repair invalid geometries in vector datasets.
+
+```bash
+python -m gis_bootcamp.geometry_validation data/messy.gpkg -o output/cleaned.gpkg
+```
+
+Features:
+- Detects invalid, empty, and null geometries
+- Repairs invalid geometries using Shapely's `make_valid()`
+- Keeps or drops unfixable geometries via `--drop` flag
+- Detailed logging of all issues by row
+- Preserves all attributes and CRS
+
+Examples:
+```bash
+# Repair and keep unfixable geometries (default)
+python -m gis_bootcamp.geometry_validation data/messy.gpkg -o output/cleaned.gpkg
+
+# Repair and drop unfixable geometries
+python -m gis_bootcamp.geometry_validation data/messy.gpkg -o output/cleaned.gpkg --drop
+
+# Verbose output with detailed row-by-row logs
+python -m gis_bootcamp.geometry_validation data/messy.gpkg -o output/cleaned.gpkg -v
+```
+
 Run tests:
 ```bash
 python -m unittest discover tests
@@ -102,4 +128,5 @@ python -m unittest discover tests
 python -m unittest tests.test_geometry_inspector -v
 python -m unittest tests.test_vector_reprojection -v
 python -m unittest tests.test_spatial_join -v
+python -m unittest tests.test_geometry_validation -v
 ```
