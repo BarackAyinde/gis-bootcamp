@@ -1386,3 +1386,86 @@ python -m unittest tests.test_spatial_qa -v
 - CLI exits with code 0 if all checks pass, 1 if any fail (CI/CD friendly)
 
 All 56 tests passing ✓
+
+### Day 4: GIS Data Linter ✓
+
+**What it does:**
+Applies configurable validation rules to vector or raster datasets and produces
+a structured JSON or plain-text report. Designed for CI/CD: exits 0 when all
+error-severity rules pass, 1 otherwise. Warning-severity failures are logged
+but do not affect exit status.
+
+**Rule names (maps to spatial_qa check functions):**
+
+| Rule | Dataset | Required params |
+|------|---------|-----------------|
+| `crs` | vector | `expected_crs` |
+| `geometry_validity` | vector | — |
+| `no_null_geometries` | vector | — |
+| `feature_count` | vector | `min_count` (+ optional `max_count`) |
+| `columns_present` | vector | `required_columns` |
+| `geometry_type` | vector | `expected_type` |
+| `bbox_within` | vector | `bbox` ([minx,miny,maxx,maxy]) |
+| `no_duplicate_values` | vector | `column` |
+| `attribute_range` | vector | `column`, `min_val`, `max_val` |
+| `raster_crs` | raster | `expected_crs` |
+| `raster_dimensions` | raster | `width`, `height` |
+| `raster_band_count` | raster | `expected_bands` |
+| `raster_nodata` | raster | — |
+| `raster_dtype` | raster | `expected_dtype` (+ optional `band`) |
+
+**JSON config format:**
+```json
+{
+  "dataset": "parcels.gpkg",
+  "rules": [
+    {"check": "crs", "expected_crs": "EPSG:4326", "severity": "error"},
+    {"check": "geometry_validity", "severity": "error"},
+    {"check": "feature_count", "min_count": 100, "severity": "warning"},
+    {"check": "columns_present", "required_columns": ["id", "area_m2"], "severity": "error"}
+  ]
+}
+```
+
+**Public API:**
+- `lint(input_path, rules, output_path=None, output_format="json")` → result dict
+- `lint_from_config(config_path, output_path=None, output_format="json")` → result dict
+- `format_report(result, fmt="json"|"text")` → str
+- `LintFinding` dataclass: `check`, `severity`, `passed`, `message`, `details`
+
+**Result dict keys:** `input_path`, `total`, `passed`, `errors`, `warnings`, `status`, `findings`
+
+**Code:**
+- `gis_bootcamp/gis_linter.py` — main module, CLI
+- `tests/test_gis_linter.py` — full test suite (43 test cases)
+
+**How to run:**
+```bash
+# CLI (text report to stdout, exits 0/1)
+python -m gis_bootcamp.gis_linter config.json
+
+# CLI (JSON report to file)
+python -m gis_bootcamp.gis_linter config.json --output report.json --format json
+
+# Programmatic
+from gis_bootcamp.gis_linter import lint
+result = lint("parcels.gpkg", [
+    {"check": "crs", "expected_crs": "EPSG:4326", "severity": "error"},
+    {"check": "geometry_validity", "severity": "error"},
+])
+if result["status"] == "fail":
+    print(f"{result['errors']} error(s) found")
+
+# Run tests
+python -m unittest tests.test_gis_linter -v
+```
+
+**Key design notes:**
+- `_REGISTRY` dict maps rule names → (kind, check_fn); kind is "vector" or "raster"
+- GeoDataFrame loaded once; shared across all vector rules in a run
+- Relative dataset paths in JSON config resolved relative to the config file's directory
+- `severity: "error"` failures set `status: "fail"`; `severity: "warning"` failures do not
+- All rule params passed as **kwargs to the underlying spatial_qa check function
+- Raster auto-detected by file extension (.tif, .tiff, .img, .vrt, .nc, .hdf, .h5)
+
+All 43 tests passing ✓
