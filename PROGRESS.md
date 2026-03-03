@@ -978,3 +978,75 @@ All 19 tests passing ✓
 - `match_status` column: `matched` or `unmatched`
 - `match_distance` column added only for nearest mode (in CRS units)
 - Note: for accurate `match_distance`, reproject to a projected CRS first
+
+---
+
+### Day 3: Routing Distance Client ✓
+
+**What it does:**
+CLI tool that reads a CSV of origin/destination coordinate pairs, queries the OSRM Route API for each pair, and writes structured output with distance and duration columns.
+
+**Inputs:**
+- CSV with `origin_lat`, `origin_lon`, `dest_lat`, `dest_lon` columns (configurable names)
+- OSRM-compatible endpoint URL (default: public `router.project-osrm.org`)
+- Output path (CSV or JSON)
+
+**Outputs:**
+- All input columns plus: `distance_m`, `distance_km`, `duration_s`, `duration_min`, `routing_status`
+- `routing_status` values: `success`, `no_route`, `error`, `skipped`
+
+**Code:**
+- `gis_bootcamp/routing_distance_client.py` — main module, CLI entry point
+- `tests/test_routing_distance_client.py` — full test suite (17 test cases, all mocked)
+
+**How to run:**
+
+Route a CSV of OD pairs:
+```bash
+python -m gis_bootcamp.routing_distance_client od_pairs.csv -o output/routes.csv
+```
+
+Custom endpoint and column names:
+```bash
+python -m gis_bootcamp.routing_distance_client od.csv -o out.csv \
+  -e http://localhost:5000 --origin-lat from_lat --origin-lon from_lon \
+  --dest-lat to_lat --dest-lon to_lon
+```
+
+JSON output:
+```bash
+python -m gis_bootcamp.routing_distance_client od.csv -o output/routes.json -f json
+```
+
+Run tests (no real HTTP calls):
+```bash
+python -m unittest tests.test_routing_distance_client -v
+```
+
+**What's tested:**
+- All rows succeed → CSV with correct counts
+- `distance_m/km` and `duration_s/min` computed correctly (10km, 12min)
+- `routing_status=success` for successful rows
+- `no_route` response counted and status set correctly
+- Timeout counted as `error`
+- ConnectionError counted as `error`
+- Missing coordinates skipped (NaN in any coord column)
+- Original columns (e.g. `trip_id`) preserved in output
+- JSON output format: parseable with expected fields
+- Output directory auto-creation (nested)
+- Result dict structure (6 required keys)
+- Custom column names respected
+- Mixed statuses (success/no_route/error/skipped) all counted correctly
+- Feature count in output matches input row count
+- Missing input raises FileNotFoundError
+- Empty CSV raises ValueError
+- Missing coordinate columns raises ValueError
+
+All 17 tests passing ✓ (all mocked — no real routing service)
+
+**Key design:**
+- `_session` injectable parameter bypasses real HTTP for testing
+- OSRM URL: `{endpoint}/route/v1/driving/{olon},{olat};{dlon},{dlat}?overview=false`
+- NaN coordinate rows skipped before HTTP call
+- Per-row error isolation: one failure never stops the pipeline
+- `requests>=2.31.0` added to project dependencies
