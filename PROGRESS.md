@@ -1311,3 +1311,78 @@ python -m unittest tests.test_postgis_client -v
 - `sqlalchemy>=2.0.0` added to project dependencies
 
 All 27 tests passing ✓
+
+### Day 3: Spatial QA Framework ✓
+
+**What it does:**
+Reusable spatial validation library that treats data quality as first-class
+testing. Provides 15 check functions covering vector and raster datasets,
+usable both programmatically and as unittest assertions.
+
+**Check functions:**
+
+| Category | Function | Validates |
+|----------|----------|-----------|
+| Vector | `check_crs` | CRS matches expected value |
+| Vector | `check_crs_consistency` | All datasets share the same CRS |
+| Vector | `check_geometry_validity` | All geometries pass Shapely is_valid |
+| Vector | `check_no_null_geometries` | No null or empty geometries |
+| Vector | `check_feature_count` | Row count within [min, max] |
+| Vector | `check_columns_present` | Required columns exist |
+| Vector | `check_geometry_type` | All geometries match expected type |
+| Vector | `check_bbox_within` | All features within bounding box |
+| Vector | `check_no_duplicate_values` | No duplicate values in a column |
+| Vector | `check_attribute_range` | Numeric values within [min, max] |
+| Raster | `check_raster_crs` | Raster CRS matches expected |
+| Raster | `check_raster_dimensions` | Pixel width × height match expected |
+| Raster | `check_raster_band_count` | Band count matches expected |
+| Raster | `check_raster_nodata` | Nodata value is defined |
+| Raster | `check_raster_dtype` | Band dtype matches expected |
+
+**Classes:**
+- `CheckResult` — dataclass: `name`, `passed`, `message`, `details`
+- `SpatialQAReport` — accumulates checks, `raise_if_failed()`, `summary()`
+- `SpatialQATestCase(unittest.TestCase)` — assert* wrappers for all checks
+
+**Code:**
+- `gis_bootcamp/spatial_qa.py` — main module, CLI (check-vector / check-raster)
+- `tests/test_spatial_qa.py` — full test suite (56 test cases)
+
+**How to run:**
+```bash
+# CLI usage
+python -m gis_bootcamp.spatial_qa check-vector parcels.gpkg \
+    --crs EPSG:4326 --min-features 100 --geometry-type Polygon \
+    --columns id,area_m2
+
+python -m gis_bootcamp.spatial_qa check-raster elevation.tif \
+    --crs EPSG:4326 --width 512 --height 512 --bands 1 --dtype float32
+
+# Programmatic usage
+from gis_bootcamp.spatial_qa import SpatialQAReport, check_crs, check_geometry_validity
+report = SpatialQAReport("parcels")
+report.add(check_crs(gdf, "EPSG:4326")).add(check_geometry_validity(gdf))
+report.raise_if_failed()
+
+# unittest subclass
+class TestMyData(SpatialQATestCase):
+    def test_parcels(self):
+        gdf = gpd.read_file("parcels.gpkg")
+        self.assertCRS(gdf, "EPSG:4326")
+        self.assertGeometryValidity(gdf)
+        self.assertFeatureCount(gdf, min_count=1)
+
+# Run tests
+python -m unittest tests.test_spatial_qa -v
+```
+
+**Key design notes:**
+- `check_crs` / `check_raster_crs` use `pyproj.CRS.equals()` for semantic comparison
+- `check_no_null_geometries` catches both null geometries (isna) and empty geometries (is_empty)
+- `SpatialQAReport.add()` returns self — supports method chaining
+- `SpatialQATestCase._assert_check()` calls `self.fail(str(result))` — integrates with unittest output
+- Invalid geometry test uses WKT bowtie polygon: `POLYGON((0 0, 10 10, 0 10, 10 0, 0 0))`
+- CRS comparison string-based for `check_crs_consistency`; semantic via pyproj for single-value checks
+- CLI exits with code 0 if all checks pass, 1 if any fail (CI/CD friendly)
+
+All 56 tests passing ✓
