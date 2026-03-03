@@ -174,3 +174,47 @@ python -m unittest tests.test_spatial_join -v
 python -m unittest tests.test_geometry_validation -v
 python -m unittest tests.test_vector_geoprocessing -v
 ```
+
+### Day 6: Vector ETL Pipeline
+
+End-of-week project that composes all 5 Week 1 tools into a production vector ETL workflow.
+
+**What it does:**
+Complete ETL pipeline with 5 stages:
+1. Load raw vector dataset
+2. Validate and repair invalid geometries
+3. Reproject to target CRS
+4. Perform optional geoprocessing (clip, buffer, dissolve)
+5. Write cleaned, production-ready output
+
+```bash
+# Reproject and validate only
+python -m gis_bootcamp.vector_etl_pipeline data/countries.shp -e 3857 -o output.gpkg
+
+# Reproject, validate, then clip to AOI
+python -m gis_bootcamp.vector_etl_pipeline data/countries.shp -e 3857 \
+  -op clip -cp clip_geometry.gpkg -o output.gpkg
+
+# Full pipeline: validate → reproject → dissolve by attribute
+python -m gis_bootcamp.vector_etl_pipeline data/countries.shp -e 3857 \
+  -op dissolve -dby continent -o output.gpkg
+
+# Full pipeline: validate → reproject → buffer with dissolve
+python -m gis_bootcamp.vector_etl_pipeline data/cities.shp -e 3857 \
+  -op buffer -dist 10000 -ds -o output.gpkg
+
+# Verbose output with all stage logs
+python -m gis_bootcamp.vector_etl_pipeline data/roads.shp -e 3857 \
+  -op buffer -dist 5000 -o output.gpkg -v
+```
+
+Run tests:
+```bash
+python -m unittest tests.test_vector_etl_pipeline -v
+```
+
+**Real-world data validation (Natural Earth countries, 258 countries):**
+- ✓ Validate → Reproject (4326→3857) → Dissolve by continent: 258 → 8 features
+- ✓ Validate → Reproject → Clip to Europe: 258 → 61 countries
+- ✓ Validate → Reproject (4326→32633 UTM): 258 → 258 countries
+- ✓ All 19 unit tests passing
