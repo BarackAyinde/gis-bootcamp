@@ -674,3 +674,70 @@ All 14 tests passing ✓
 - First-wins merge strategy for overlapping pixels
 - Nodata and metadata carried from first input raster
 - Output directory auto-created
+
+---
+
+### Day 5: Vector → GeoParquet Converter ✓
+
+**What it does:**
+CLI tool that loads a vector dataset, validates CRS and geometry presence, and writes a GeoParquet file using GeoPandas + pyarrow. All attributes, geometry, and spatial metadata are preserved.
+
+**Inputs:**
+- Vector file (GeoPackage, Shapefile, GeoJSON)
+- Output `.parquet` path
+- Optional `--layer` for multi-layer sources
+
+**Outputs:**
+- GeoParquet file with preserved CRS, geometry, and attributes
+
+**Code:**
+- `gis_bootcamp/vector_to_geoparquet.py` — main module, CLI entry point
+- `tests/test_vector_to_geoparquet.py` — full test suite (15 test cases)
+
+**How to run:**
+
+Convert a GeoPackage:
+```bash
+python -m gis_bootcamp.vector_to_geoparquet data/countries.gpkg -o output/countries.parquet
+```
+
+Convert with explicit layer:
+```bash
+python -m gis_bootcamp.vector_to_geoparquet data/multi.gpkg -l roads -o output/roads.parquet
+```
+
+Verbose output:
+```bash
+python -m gis_bootcamp.vector_to_geoparquet data/points.geojson -o output/points.parquet -v
+```
+
+Run tests:
+```bash
+python -m unittest tests.test_vector_to_geoparquet -v
+```
+
+**What's tested:**
+- Point, polygon, and linestring conversion
+- CRS preserved and readable via round-trip read
+- All attribute columns preserved after round-trip
+- Feature count preserved (10 features in → 10 out)
+- Geometry types reported in result dict
+- Output directory auto-creation (nested)
+- Result dict structure completeness
+- File size is non-zero
+- Non-WGS84 CRS (EPSG:3857) preserved correctly
+- Round-trip geometry coordinates intact
+- Missing input raises FileNotFoundError
+- Missing CRS raises ValueError
+- Empty dataset raises ValueError (via empty GeoJSON)
+- Polygon and LineString geometry types
+- `output_path` in result matches argument
+
+All 15 tests passing ✓
+
+**Key design:**
+- `gdf.to_parquet(engine="pyarrow")` — standard GeoParquet writer
+- CRS validated before write (fail-fast, not silent)
+- Geometry types logged via `geom_type.value_counts()`
+- Output directory auto-created
+- `pyarrow>=14.0.0` added to project dependencies
