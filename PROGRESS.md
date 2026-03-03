@@ -1257,3 +1257,57 @@ python -m unittest tests.test_spatial_api -v
 - `httpx>=0.24.0` added to dev dependencies (TestClient backend)
 
 All 22 tests passing ✓
+
+### Day 2: PostGIS Integration Client ✓
+
+**What it does:**
+Read from and write to PostGIS spatial tables without a real server required
+in tests. Connections are provided by the caller (SQLAlchemy engine or
+psycopg2 connection). All three functions follow the same injectable/mockable
+pattern used throughout the project.
+
+**Functions:**
+
+| Function | Direction | Key params |
+|----------|-----------|------------|
+| `postgis_read(table_name, con, ...)` | DB → GeoDataFrame → optional file | `where`, `schema`, `geom_col`, `output_path` |
+| `postgis_write(input_path, table_name, con, ...)` | file → GeoDataFrame → DB | `schema`, `if_exists`, `chunksize` |
+| `postgis_query(sql, con, ...)` | arbitrary SQL → GeoDataFrame → optional file | `params`, `geom_col`, `output_path` |
+| `make_engine(dsn)` | helper | Returns SQLAlchemy Engine |
+
+**Result dict keys (read/query):** `output_path`, `feature_count`, `crs`, `columns`, `geometry_types`
+
+**Result dict keys (write):** `table_name`, `schema`, `feature_count`, `crs`, `if_exists`
+
+**Code:**
+- `gis_bootcamp/postgis_client.py` — main module, subcommand CLI (read/write/query)
+- `tests/test_postgis_client.py` — full test suite (27 test cases, fully mocked)
+
+**How to run:**
+```bash
+# Read table to local file
+python -m gis_bootcamp.postgis_client read parcels \
+    --dsn postgresql://user:pass@localhost/db \
+    -o output/parcels.gpkg --where "area_m2 > 500"
+
+# Write local file to PostGIS
+python -m gis_bootcamp.postgis_client write data/points.gpkg points_new \
+    --dsn postgresql://user:pass@localhost/db --if-exists replace
+
+# Execute spatial SQL
+python -m gis_bootcamp.postgis_client query \
+    "SELECT * FROM parcels WHERE ST_Within(geom, ST_Buffer(...))" \
+    --dsn postgresql://user:pass@localhost/db -o output/result.gpkg
+
+# Run tests (no real DB needed)
+python -m unittest tests.test_postgis_client -v
+```
+
+**Key design notes:**
+- `gpd.read_postgis` / `GeoDataFrame.to_postgis` mocked with `patch.object` — zero DB dependency in tests
+- Table/schema identifiers validated with `^[a-zA-Z_][a-zA-Z0-9_$]*$` to prevent injection via names
+- Output format auto-detected from extension: `.gpkg`, `.parquet`, `.geojson`, `.shp`
+- `make_engine(dsn)` defers sqlalchemy import — fails gracefully if not installed
+- `sqlalchemy>=2.0.0` added to project dependencies
+
+All 27 tests passing ✓
