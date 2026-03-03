@@ -402,4 +402,69 @@ All 19 tests passing ✓
 - CLI entry points for all tools
 - Full unittest coverage
 
-**Next:** Week 2 (Raster GIS) - Raster analysis, resampling, band operations, zonal statistics
+---
+
+## Week 2: Raster GIS
+
+### Day 1: Raster Metadata Inspector ✓
+
+**What it does:**
+CLI tool that reads a raster file and prints metadata without loading full pixel data into memory.
+
+**Outputs:**
+- CRS
+- Resolution (pixel size)
+- Bounds (geographic extent)
+- Number of bands
+- Data type per band
+- Nodata value
+- Raster dimensions (width, height)
+- Affine transform details
+- Driver and compression info
+
+**Code:**
+- `gis_bootcamp/raster_metadata_inspector.py` — main module, CLI entry point
+- `tests/test_raster_metadata_inspector.py` — full test suite
+
+**How to run:**
+
+Inspect a raster dataset (pretty-printed):
+```bash
+raster_metadata_inspector data/dem.tif
+raster_metadata_inspector data/ortho.tif --verbose
+```
+
+Inspect and output JSON:
+```bash
+raster_metadata_inspector data/dem.tif --json
+```
+
+Run tests:
+```bash
+python -m unittest tests.test_raster_metadata_inspector -v
+```
+
+**What's tested:**
+- Single-band raster inspection (WGS84)
+- Multi-band raster inspection (RGB)
+- Metadata structure and completeness
+- Bounds handling and structure
+- Band details extraction
+- Nodata value capture
+- Pixel size calculations
+- CRS handling (EPSG:4326, EPSG:3857, UTM)
+- Transform matrix extraction
+- Driver identification
+- JSON serialization
+- File not found error handling
+- Invalid raster file error handling
+- Consistency across multiple inspections
+
+All 14 tests passing ✓
+
+**Key design:**
+- Uses rasterio to read only metadata (no pixel I/O)
+- Supports formatted text output or JSON
+- Handles all raster types (GeoTIFF, COG, etc.)
+- Proper logging and error messages
+- No full raster data in memory
