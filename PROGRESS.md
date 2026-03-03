@@ -1522,3 +1522,80 @@ python -m unittest tests.test_docker -v
 - 11 production entry-point checks (all modules importable, /health endpoint works, ...)
 
 All 42 tests passing ✓  |  Full suite: 495 tests, all passing ✓
+
+---
+
+## Capstone
+
+### Option A: Geospatial ETL Platform ✓
+
+**What it does:**
+Declarative extract-transform-load pipeline engine for vector geospatial datasets.
+Define a source, a sequence of 11 composable transforms, and a sink as a Python
+dict or JSON config file. Each transform is stateless and chainable.
+
+**Transform registry (11 operations):**
+
+| Transform | Key params | Effect |
+|-----------|-----------|--------|
+| `reproject` | `crs` | Re-project to target CRS |
+| `filter` | `query` | Pandas query expression row filter |
+| `clip_bbox` | `bbox` | Clip to bounding box [minx,miny,maxx,maxy] |
+| `buffer` | `distance`, `cap_style` | Buffer geometries (CRS units) |
+| `dissolve` | `by`, `aggfunc` | Dissolve by column or dissolve all |
+| `rename_columns` | `mapping` | Rename attribute columns |
+| `drop_columns` | `columns` | Remove attribute columns |
+| `select_columns` | `columns` | Keep only specified columns + geometry |
+| `validate_geometry` | `action` (fix/drop) | Fix or drop invalid geometries |
+| `deduplicate` | `columns`, `keep` | Remove duplicate rows |
+| `add_attribute` | `column`, `value` | Add constant-value column |
+
+**Sources:** `file` (GPKG/Shapefile/GeoJSON/GeoParquet), `postgis`
+**Sinks:** `file` (format from extension), `postgis`
+
+**Public API:**
+- `run_pipeline(pipeline_def)` → result dict
+- `run_pipeline_from_config(config_path)` → result dict
+- `validate_pipeline(pipeline_def)` → list of error strings (empty = valid)
+
+**Result dict keys:** `pipeline_name`, `source`, `transforms_applied`, `sink`, `rows_in`, `rows_out`, `rows_dropped`, `duration_seconds`
+
+**Code:**
+- `gis_bootcamp/geospatial_etl.py` — ETL engine + CLI
+- `tests/test_geospatial_etl.py` — full test suite (42 test cases)
+
+**How to run:**
+```bash
+# CLI
+python -m gis_bootcamp.geospatial_etl pipeline.json
+python -m gis_bootcamp.geospatial_etl pipeline.json --validate-only
+
+# Programmatic
+from gis_bootcamp.geospatial_etl import run_pipeline
+result = run_pipeline({
+    "name": "parcels_clean",
+    "source": {"type": "file", "path": "raw/parcels.gpkg"},
+    "transforms": [
+        {"type": "reproject", "crs": "EPSG:4326"},
+        {"type": "filter", "query": "area_m2 > 50"},
+        {"type": "validate_geometry", "action": "fix"},
+        {"type": "drop_columns", "columns": ["tmp_id"]},
+    ],
+    "sink": {"type": "file", "path": "clean/parcels.gpkg"},
+})
+print(result["rows_in"], "→", result["rows_out"])
+
+# Run tests
+python -m unittest tests.test_geospatial_etl -v
+```
+
+**Key design notes:**
+- `validate_pipeline()` checks all transforms before any I/O starts — fails fast
+- Relative source/sink paths in JSON config resolved relative to config file's directory
+- `_TRANSFORMS` registry dict maps names → functions; all receive `**params` from the rule dict
+- `dissolve(by=None)` uses `reset_index(drop=True)` to avoid adding a spurious index column
+- `select_columns` always appends the geometry column name to avoid stripping it
+- `drop_columns` silently ignores missing columns
+- Sink auto-creates parent directories; format detected from file extension
+
+All 42 tests passing ✓
