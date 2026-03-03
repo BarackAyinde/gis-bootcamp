@@ -1144,3 +1144,60 @@ python -m unittest tests.test_map_renderer -v
 - `matplotlib>=3.7.0` added to project dependencies
 
 All 26 tests passing ✓
+
+### Day 6: Spatial Data Enrichment Pipeline ✓
+
+**What it does:**
+Composes all Week 3 tools into a single configurable pipeline:
+
+| Stage | Tool | Triggered by |
+|-------|------|--------------|
+| 1 — Geocode | `batch_geocoder` | `geocode_column` parameter |
+| 2 — Nearest-feature | `nearest_feature_lookup` | `reference_path` parameter |
+| 3 — Density analysis | `density_analysis` | `density_cell_size` parameter |
+| 4 — Render map | `map_renderer` | `render=True` parameter |
+
+At least one stage must be configured. Stages share an output directory.
+After geocoding, only successfully geocoded rows pass to downstream stages.
+
+**Outputs (all written to `output_dir/`):**
+- `geocoded.gpkg` — all geocoded rows (Stage 1)
+- `points.gpkg` — success-only points from geocoding
+- `enriched.gpkg` — points with reference attributes (Stage 2)
+- `density.tif` or `density.gpkg` — hotspot analysis (Stage 3)
+- `map.png` — rendered map (Stage 4)
+
+**Result dict keys:** `output_dir`, `stages_run`, `enriched_path`, `point_count`, `geocode_stats`, `lookup_stats`, `density_stats`, `map_path`
+
+**Code:**
+- `gis_bootcamp/enrichment_pipeline.py` — main module, CLI entry point
+- `tests/test_enrichment_pipeline.py` — full test suite (21 test cases)
+
+**How to run:**
+```bash
+# Geocode addresses then enrich with reference polygons
+python -m gis_bootcamp.enrichment_pipeline addresses.csv \
+    -o output/enriched \
+    --geocode-col address \
+    --reference data/regions.gpkg \
+    --render --map-title "Enriched Points"
+
+# Existing points: nearest-feature lookup + density grid + map
+python -m gis_bootcamp.enrichment_pipeline data/points.gpkg \
+    -o output/enriched \
+    --reference data/zones.gpkg \
+    --density-cell-size 100 --density-type vector \
+    --render
+
+# Run tests
+python -m unittest tests.test_enrichment_pipeline -v
+```
+
+**Key design notes:**
+- Each stage is optional; pipeline raises ValueError if none are configured
+- Geocode stage filters to `geocode_status == "success"` before downstream stages
+- KDE density fails with collinear/identical points → use `--density-type vector` when geocoder mock returns fixed coords or with small synthetic test datasets
+- `_geocoder` injectable bypasses real Nominatim HTTP in tests
+- All four Week 3 tools imported and composed with no code duplication
+
+All 21 tests passing ✓
