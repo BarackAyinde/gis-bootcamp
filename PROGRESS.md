@@ -468,3 +468,70 @@ All 14 tests passing ✓
 - Handles all raster types (GeoTIFF, COG, etc.)
 - Proper logging and error messages
 - No full raster data in memory
+
+---
+
+### Day 2: Raster Clipper ✓
+
+**What it does:**
+CLI tool that clips a raster using either a bounding box or vector mask geometry. Handles CRS alignment with auto-reprojection and preserves nodata values.
+
+**Inputs:**
+- Raster file (GeoTIFF, COG, etc.)
+- Clipping method: either bounding box (minx, miny, maxx, maxy) or vector mask (GeoPackage, Shapefile, GeoJSON)
+- Output path
+
+**Outputs:**
+- Clipped raster file with proper geospatial metadata
+- Clipping report with dimensions, bounds, CRS, nodata info
+
+**Code:**
+- `gis_bootcamp/raster_clipper.py` — main module, CLI entry point
+- `tests/test_raster_clipper.py` — full test suite
+
+**How to run:**
+
+Clip with bounding box:
+```bash
+raster_clipper data/dem.tif -bbox -180 0 0 45 -o output/clipped.tif
+raster_clipper data/ortho.tif -bbox -10 -10 10 10 -o output/subset.tif -v
+```
+
+Clip with vector mask:
+```bash
+raster_clipper data/dem.tif -mask polygon.gpkg -o output/clipped.tif
+raster_clipper data/dem.tif -mask countries.shp -o output/clipped.tif
+```
+
+Run tests:
+```bash
+python -m unittest tests.test_raster_clipper -v
+```
+
+**What's tested:**
+- Clipping with bounding box (valid bbox, dimensions reduction)
+- Clipping with vector mask (single/multi-feature masks)
+- CRS alignment (auto-reprojection of mask to raster CRS)
+- Output file creation and directory auto-creation
+- Nodata value preservation in clipped output
+- CRS preservation in clipped output
+- Bounds calculation and validity
+- Error handling:
+  - Missing raster file
+  - Missing mask file
+  - Invalid bounding box coordinates (minx >= maxx, etc.)
+  - Bounding box with no overlap
+  - Empty mask (no features)
+- Result dictionary structure validation
+- Multiple clipping operations on same file
+
+All 16 tests passing ✓
+
+**Real-world test:** ✓ Clipped 256×256 raster to half height (256×128) using bbox -180 0 0 45, verified output with metadata inspector.
+
+**Key design:**
+- Windowed reads for efficient clipping (avoids loading full raster)
+- rasterio.mask for polygon masking with automatic crop
+- CRS mismatch detection and auto-reprojection via GeoPandas
+- Proper transform and metadata preservation
+- Nodata values carried through clipping operation
