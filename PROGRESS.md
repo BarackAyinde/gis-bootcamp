@@ -608,3 +608,69 @@ All 18 tests passing ✓
 - LZW compression for cloud efficiency
 - Validation checks: tiling, block size, overviews, compression
 - COG-compliant metadata structure
+
+---
+
+### Day 4: Raster Mosaic Tool ✓
+
+**What it does:**
+CLI tool that accepts multiple raster inputs, reprojects any with mismatched CRS on-the-fly, mosaics them into a single output raster, and writes the result with nodata and metadata preserved.
+
+**Inputs:**
+- Two or more raster file paths (GeoTIFF, COG, etc.)
+- Output raster path
+- Optional target CRS (defaults to first raster's CRS)
+
+**Outputs:**
+- Single mosaicked GeoTIFF with correct CRS, dimensions, and nodata
+
+**Code:**
+- `gis_bootcamp/raster_mosaic.py` — main module, CLI entry point
+- `tests/test_raster_mosaic.py` — full test suite (14 test cases)
+
+**How to run:**
+
+Mosaic two adjacent tiles:
+```bash
+python -m gis_bootcamp.raster_mosaic tile_west.tif tile_east.tif -o output/mosaic.tif
+```
+
+Mosaic with explicit target CRS:
+```bash
+python -m gis_bootcamp.raster_mosaic *.tif -o output/mosaic.tif -crs EPSG:3857
+```
+
+Verbose output:
+```bash
+python -m gis_bootcamp.raster_mosaic a.tif b.tif c.tif -o output/mosaic.tif -v
+```
+
+Run tests:
+```bash
+python -m unittest tests.test_raster_mosaic -v
+```
+
+**What's tested:**
+- Two adjacent tiles produce a wider mosaic
+- Single raster passthrough (correct dimensions)
+- Output CRS defaults to first raster CRS
+- Mismatched CRS auto-reprojected via WarpedVRT
+- User-specified target CRS applied
+- Output directory auto-creation (nested)
+- Nodata value preserved in output file
+- Multi-band rasters (3-band) mosaicked correctly
+- Overlapping rasters merged without error
+- Result dict structure completeness
+- Three-tile full-globe mosaic
+- Empty input list raises ValueError
+- Missing input file raises FileNotFoundError
+- Raster without CRS raises ValueError
+
+All 14 tests passing ✓
+
+**Key design:**
+- WarpedVRT for on-the-fly CRS reprojection (no temp files written)
+- `rasterio.merge.merge()` with nodata propagation
+- First-wins merge strategy for overlapping pixels
+- Nodata and metadata carried from first input raster
+- Output directory auto-created
