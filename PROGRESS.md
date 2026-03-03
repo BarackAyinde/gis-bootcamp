@@ -843,3 +843,69 @@ All 18 tests passing ✓
 
 **Total Week 2: 95 unit tests, all passing ✓**
 **Grand total Weeks 1+2: 193 unit tests, all passing ✓**
+
+---
+
+## Week 3: Spatial Analysis
+
+### Day 1: Batch Geocoder ✓
+
+**What it does:**
+CLI tool that reads a CSV of addresses, geocodes each row via Nominatim (OpenStreetMap), handles rate limiting, retries, and failures gracefully, and writes a geospatial point dataset with status columns.
+
+**Inputs:**
+- CSV file with an address column (configurable name, default `address`)
+- Output path (GPKG or GeoParquet)
+- Optional: `--user-agent`, `--delay`, `--retries`, `--format`
+
+**Outputs:**
+- Point dataset with original columns plus: `latitude`, `longitude`, `geocode_matched_address`, `geocode_status`
+- `geocode_status` values: `success`, `not_found`, `error`, `skipped`
+
+**Code:**
+- `gis_bootcamp/batch_geocoder.py` — main module, CLI entry point
+- `tests/test_batch_geocoder.py` — full test suite (16 test cases, all mocked)
+
+**How to run:**
+
+Geocode a CSV:
+```bash
+python -m gis_bootcamp.batch_geocoder addresses.csv -o output/geocoded.gpkg
+```
+
+Custom column, parquet output:
+```bash
+python -m gis_bootcamp.batch_geocoder data.csv -col location -o output/geocoded.parquet -f parquet
+```
+
+Run tests (no real HTTP calls):
+```bash
+python -m unittest tests.test_batch_geocoder -v
+```
+
+**What's tested:**
+- All rows succeed → GPKG output with correct counts
+- GeoParquet output format (round-trip read)
+- Point geometries have correct lat/lon for successful rows
+- Original CSV attributes preserved in output
+- `geocode_status` and `geocode_matched_address` columns added
+- Not-found rows get null geometry and `not_found` status
+- Empty/NaN address rows counted as `skipped`, not errored
+- Transient errors caught, logged, counted without crashing pipeline
+- Output directory auto-creation (nested)
+- Result dict structure (6 required keys)
+- Custom `address_column` name respected
+- Output CRS is EPSG:4326
+- Mixed success/not_found/error counts all correct
+- Missing input raises FileNotFoundError
+- Empty CSV raises ValueError
+- Missing address column raises ValueError
+
+All 16 tests passing ✓ (all mocked — no real HTTP)
+
+**Key design:**
+- `_geocoder` injectable parameter for testing (bypasses real Nominatim)
+- `geopy.extra.rate_limiter.RateLimiter` enforces OSM's 1 req/sec limit
+- Per-row retry with exponential back-off (1s, 2s, ... between attempts)
+- `geocode_status` column makes success/failure queryable in downstream tools
+- `geopy>=2.4.0` added to project dependencies
