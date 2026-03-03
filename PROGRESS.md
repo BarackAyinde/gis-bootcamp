@@ -101,3 +101,65 @@ python -m unittest tests.test_vector_reprojection -v
 All 9 tests passing ✓
 
 ---
+
+### Day 3: Spatial Join Engine ✓
+
+**What it does:**
+CLI tool that reads two vector datasets, ensures they share a CRS (reprojecting if needed), performs a spatial join with a specified predicate, and writes the result with all attributes from both datasets.
+
+**Inputs:**
+- Left dataset (base, keep all rows in left join)
+- Right dataset (join target)
+- Spatial predicate: `intersects`, `within`, `contains`
+- Join type: `left`, `right`, `inner`, `outer`
+
+**Outputs:**
+- Joined vector file with combined attributes
+- Console report showing feature counts before/after, predicates, CRS info
+
+**Code:**
+- `gis_bootcamp/spatial_join.py` — main module
+- `tests/test_spatial_join.py` — full test suite (14 test cases)
+
+**How to run:**
+
+Point-in-polygon (cities within countries):
+```bash
+python -m gis_bootcamp.spatial_join \
+  data/cities.gpkg data/countries.gpkg \
+  -o output/cities_in_countries.gpkg -p within
+```
+
+Intersecting features (roads crossing streams):
+```bash
+python -m gis_bootcamp.spatial_join \
+  data/roads.shp data/streams.shp \
+  -o output/road_stream_intersections.gpkg
+```
+
+Inner join (only matching features):
+```bash
+python -m gis_bootcamp.spatial_join \
+  data/left.gpkg data/right.gpkg \
+  -o output/result.gpkg -p contains -how inner
+```
+
+Run tests:
+```bash
+python -m unittest tests.test_spatial_join -v
+```
+
+**What's tested:**
+- All three predicates: intersects, within, contains
+- All four join types: left, right, inner, outer
+- CRS mismatch handling (auto-reproject right to left)
+- Attribute preservation from both datasets
+- File not found errors (left and right)
+- Invalid predicate error
+- Empty dataset handling (left and right)
+- Missing CRS handling (left and right)
+- Output directory auto-creation
+
+All 14 tests passing ✓
+
+---

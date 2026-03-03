@@ -57,16 +57,49 @@ python -m gis_bootcamp.vector_reprojection data/points.shp -t EPSG:32633 -o outp
 python -m gis_bootcamp.vector_reprojection data/parcels.geojson -t EPSG:4269 -o output/parcels_nad83.geojson
 ```
 
-Run tests:
+### Day 3: Spatial Join Engine
+CLI tool to perform spatial joins between two vector datasets.
+
 ```bash
-python -m pytest tests/ -v
+python -m gis_bootcamp.spatial_join left.gpkg right.gpkg -o output/joined.gpkg -p within
 ```
 
-Or with unittest:
+Features:
+- Three spatial predicates: `intersects`, `within`, `contains`
+- Four join types: `left`, `right`, `inner`, `outer`
+- Automatic CRS alignment (right dataset reprojected to left if needed)
+- Preserves all attributes from both datasets
+- Logs feature counts before/after join
+
+Examples:
+```bash
+# Point-in-polygon (cities within countries)
+python -m gis_bootcamp.spatial_join \
+  data/cities.gpkg data/countries.gpkg \
+  -o output/cities_in_countries.gpkg -p within
+
+# Find intersecting features (roads crossing streams)
+python -m gis_bootcamp.spatial_join \
+  data/roads.shp data/streams.shp \
+  -o output/road_stream_intersections.gpkg
+
+# Find containing features (districts containing points)
+python -m gis_bootcamp.spatial_join \
+  data/districts.gpkg data/points.geojson \
+  -o output/points_by_district.gpkg -p contains -how inner
+
+# Right join (keep all right features)
+python -m gis_bootcamp.spatial_join \
+  data/left.gpkg data/right.gpkg \
+  -o output/result.gpkg -how right
+```
+
+Run tests:
 ```bash
 python -m unittest discover tests
 
 # Run specific test file
 python -m unittest tests.test_geometry_inspector -v
 python -m unittest tests.test_vector_reprojection -v
+python -m unittest tests.test_spatial_join -v
 ```
