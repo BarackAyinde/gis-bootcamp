@@ -1201,3 +1201,59 @@ python -m unittest tests.test_enrichment_pipeline -v
 - All four Week 3 tools imported and composed with no code duplication
 
 All 21 tests passing ✓
+
+## Week 4: Production Services
+
+### Day 1: FastAPI Spatial Service ✓
+
+**What it does:**
+HTTP API exposing all GIS bootcamp tools as JSON endpoints. No file uploads —
+all inputs/outputs are server-side paths. Geocoder dependency is injectable
+for clean test isolation.
+
+**Endpoints:**
+
+| Method | Path | Tool wrapped | Notes |
+|--------|------|-------------|-------|
+| `GET` | `/health` | — | Liveness check |
+| `POST` | `/geocode` | `batch_geocoder` | Nominatim injectable via FastAPI dep |
+| `POST` | `/nearest-feature` | `nearest_feature_lookup` | Spatial attribute join |
+| `POST` | `/density` | `density_analysis` | KDE raster or vector count grid |
+| `POST` | `/render` | `map_renderer` | Static PNG/SVG/PDF map |
+| `POST` | `/pipeline` | `enrichment_pipeline` | Full multi-stage pipeline |
+
+**Error handling:**
+- `FileNotFoundError` → HTTP 404
+- `ValueError` → HTTP 400
+- Pydantic validation errors → HTTP 422 (FastAPI default)
+
+**Code:**
+- `gis_bootcamp/spatial_api.py` — FastAPI app, Pydantic models, CLI entry point
+- `tests/test_spatial_api.py` — full test suite (22 test cases, TestClient)
+
+**How to run:**
+```bash
+# Start the server
+python -m gis_bootcamp.spatial_api --port 8000
+
+# Or with auto-reload for development
+python -m gis_bootcamp.spatial_api --port 8000 --reload
+
+# Example requests
+curl http://localhost:8000/health
+curl -X POST http://localhost:8000/nearest-feature \
+  -H "Content-Type: application/json" \
+  -d '{"points_path": "data/pts.gpkg", "reference_path": "data/ref.gpkg", "output_path": "output/enriched.gpkg"}'
+
+# Run tests
+python -m unittest tests.test_spatial_api -v
+```
+
+**Key design notes:**
+- FastAPI dependency injection used for geocoder (`_default_geocoder`) — override in tests with `app.dependency_overrides`
+- `render_map` returns tuples for `bbox`/`figsize`; route converts to lists for JSON
+- TestClient (httpx-backed) used in unittest with class-level `setUpClass`
+- `fastapi>=0.104.0`, `uvicorn>=0.24.0` added to project dependencies
+- `httpx>=0.24.0` added to dev dependencies (TestClient backend)
+
+All 22 tests passing ✓
