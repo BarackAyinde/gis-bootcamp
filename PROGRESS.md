@@ -1050,3 +1050,48 @@ All 17 tests passing ✓ (all mocked — no real routing service)
 - NaN coordinate rows skipped before HTTP call
 - Per-row error isolation: one failure never stops the pipeline
 - `requests>=2.31.0` added to project dependencies
+
+### Day 4: Hotspot / Density Analysis ✓
+
+**What it does:**
+Computes point density using two output modes:
+- **raster**: Kernel Density Estimation (KDE) via `scipy.stats.gaussian_kde`, written as a float32 GeoTIFF
+- **vector**: Regular fishnet grid with per-cell point counts, written as GeoPackage
+
+**Outputs (raster mode):**
+- Single-band float32 GeoTIFF, CRS-aligned to input, density values ≥ 0
+- Auto-computed or user-specified KDE bandwidth (Scott's rule default)
+
+**Outputs (vector mode):**
+- GeoPackage with square grid cells, each with `point_count` column
+- All cells present; zero-count cells retained
+
+**Result dict keys:** `output_path`, `output_type`, `point_count`, `crs`, `cell_size`, `bandwidth`, `grid_width`, `grid_height`, `total_cells`, `hotspot_cells`
+
+**Code:**
+- `gis_bootcamp/density_analysis.py` — main module, CLI entry point
+- `tests/test_density_analysis.py` — full test suite (23 test cases)
+
+**How to run:**
+```bash
+# KDE raster
+python -m gis_bootcamp.density_analysis points.gpkg -o output/kde.tif -c 50
+
+# Vector fishnet count grid
+python -m gis_bootcamp.density_analysis points.gpkg -o output/grid.gpkg -c 100 -t vector
+
+# KDE with explicit bandwidth
+python -m gis_bootcamp.density_analysis points.gpkg -o output/kde_bw.tif -c 50 -bw 200
+
+# Run tests
+python -m unittest tests.test_density_analysis -v
+```
+
+**Key design notes:**
+- KDE grid: x increases left→right, y decreases top→bottom (rasterio convention) — `yi = np.arange(ymax, ymin, -cell_size)`
+- `from_origin(west, north, xsize, ysize)` sets the raster geotransform correctly
+- Vector counting uses numpy floor-division binning (not sjoin) to handle boundary points deterministically
+- `bandwidth` param is in CRS units; converted to KDE `bw_method` (scale factor of std-dev) internally
+- `scipy>=1.11.0` added to project dependencies
+
+All 23 tests passing ✓
