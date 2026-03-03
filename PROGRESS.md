@@ -1599,3 +1599,140 @@ python -m unittest tests.test_geospatial_etl -v
 - Sink auto-creates parent directories; format detected from file extension
 
 All 42 tests passing ✓
+
+---
+
+### Option B: Tile/Clip Service (FastAPI REST API) ✓
+
+**What it does:**
+A production-grade FastAPI microservice that dynamically clips vector and raster 
+spatial datasets to user-supplied bounding boxes. Designed for on-demand spatial 
+data delivery in web backends.
+
+**Core Functions (importable independently):**
+
+1. **`bbox_metadata(minx, miny, maxx, maxy, crs)`** → dict
+   - Computes bbox center, width, height, area in CRS units
+   - Validates bbox (minx < maxx, miny < maxy)
+
+2. **`clip_vector(dataset_path, bbox, bbox_crs, output_format, output_path)`** → dict
+   - Spatial index pre-filter via `gdf.cx[]` (STRtree-backed) for performance
+   - Precise clip using Shapely `.clip()` method
+   - Handles CRS mismatch: bbox reprojected to dataset CRS if needed
+   - Output formats: `"geojson"` (inline), `"gpkg"` (writes file)
+   - Returns: feature_count, crs, bbox, output_format, geojson|output_path, duration_seconds
+
+3. **`clip_raster(raster_path, bbox, bbox_crs, output_path)`** → dict
+   - Windowed reads via `rasterio.mask.mask(crop=True)` — only clipped pixels loaded
+   - Handles CRS mismatch: bbox reprojected via `rasterio.warp.transform_bounds()`
+   - Explicit overlap check against raster extent before clipping
+   - Output: GeoTIFF
+   - Returns: output_path, crs, bbox_used, width, height, band_count, dtype, nodata, duration_seconds
+
+**API Endpoints:**
+
+| Method | Path | Query/Body Params | Returns |
+|--------|------|-------------------|---------|
+| GET | `/health` | — | `{"status": "ok"}` |
+| GET | `/bbox/metadata` | `minx, miny, maxx, maxy, crs` | BBoxMetadataResponse |
+| POST | `/clip/vector` | ClipVectorRequest (JSON) | ClipVectorResponse |
+| POST | `/clip/raster` | ClipRasterRequest (JSON) | ClipRasterResponse |
+
+**Request Models (Pydantic with validation):**
+
+- **BboxMetadataRequest**: minx, miny, maxx, maxy, crs
+  - Validator: bbox must have 4 elements, minx < maxx, miny < maxy
+- **ClipVectorRequest**: dataset_path, bbox, bbox_crs (default "EPSG:4326"), output_format ("geojson"|"gpkg"), output_path (required for gpkg)
+  - Validators: output_format check, bbox validation
+- **ClipRasterRequest**: raster_path, bbox, bbox_crs (default "EPSG:4326"), output_path
+  - Validator: bbox validation
+
+**Exception Handlers:**
+- `FileNotFoundError` → 404 Not Found
+- `ValueError` (bbox validation, overlap check, etc.) → 400 Bad Request
+- Pydantic validation errors → 422 Unprocessable Entity
+
+**Configuration (environment variables):**
+- `TCS_DATA_DIR` — base directory for data access (logging only)
+- `TCS_OUTPUT_DIR` — base directory for output files (default: `./output`)
+
+**Code:**
+- `gis_bootcamp/tile_clip_service.py` — FastAPI service + core functions + CLI
+- `tests/test_tile_clip_service.py` — comprehensive test suite (50 test cases)
+
+**How to run:**
+```bash
+# Start server on port 8001
+python -m gis_bootcamp.tile_clip_service
+
+# Custom host/port
+python -m gis_bootcamp.tile_clip_service --host 0.0.0.0 --port 9000
+
+# With reload (dev mode)
+python -m gis_bootcamp.tile_clip_service --reload
+
+# Get metadata about a bbox (GET)
+curl 'http://localhost:8001/bbox/metadata?minx=0&miny=0&maxx=10&maxy=10&crs=EPSG:4326'
+
+# Clip vector to GeoJSON (POST)
+curl -X POST http://localhost:8001/clip/vector \
+  -H "Content-Type: application/json" \
+  -d '{
+    "dataset_path": "data/cities.gpkg",
+    "bbox": [0, 0, 10, 10],
+    "bbox_crs": "EPSG:4326",
+    "output_format": "geojson"
+  }'
+
+# Clip vector to GPKG (POST)
+curl -X POST http://localhost:8001/clip/vector \
+  -H "Content-Type: application/json" \
+  -d '{
+    "dataset_path": "data/cities.gpkg",
+    "bbox": [0, 0, 10, 10],
+    "output_format": "gpkg",
+    "output_path": "output/cities_clipped.gpkg"
+  }'
+
+# Clip raster (POST)
+curl -X POST http://localhost:8001/clip/raster \
+  -H "Content-Type: application/json" \
+  -d '{
+    "raster_path": "data/dem.tif",
+    "bbox": [0, 0, 10, 10],
+    "bbox_crs": "EPSG:4326",
+    "output_path": "output/dem_clipped.tif"
+  }'
+
+# Programmatic usage
+from gis_bootcamp.tile_clip_service import bbox_metadata, clip_vector, clip_raster
+
+# Metadata
+meta = bbox_metadata(0, 0, 10, 10, crs="EPSG:4326")
+print(meta["center"], meta["area_crs_units"])
+
+# Clip vector
+result = clip_vector("data/cities.gpkg", [0, 0, 10, 10], output_format="geojson")
+geojson_data = result["geojson"]
+
+# Clip raster
+result = clip_raster("data/dem.tif", [0, 0, 10, 10], output_path="output/clipped.tif")
+print(f"Output: {result['output_path']} — {result['width']}×{result['height']} px")
+
+# Run tests
+python -m pytest tests/test_tile_clip_service.py -v
+```
+
+**Key design notes:**
+- Three core functions are importable independently of FastAPI (reusable in batch jobs, CLI tools, etc.)
+- Vector clip: spatial pre-filter with `.cx[]` (STRtree-backed) before precise `.clip()` for O(n) → O(k) performance on large datasets
+- Raster clip: windowed reads ensure memory efficiency (no full raster loaded)
+- CRS mismatch handling: bbox is projected to dataset/raster CRS transparently
+- Validation happens at Pydantic level for strict request checking
+- All exceptions mapped to standard HTTP status codes (404, 400, 422)
+- Logging includes timing info and feature counts for observability
+- Parent directories auto-created for output files
+- TestClient (FastAPI's ASGI test client) used — no real HTTP server needed for tests
+
+All 50 tests passing ✓
+
