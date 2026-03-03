@@ -120,6 +120,49 @@ python -m gis_bootcamp.geometry_validation data/messy.gpkg -o output/cleaned.gpk
 python -m gis_bootcamp.geometry_validation data/messy.gpkg -o output/cleaned.gpkg -v
 ```
 
+### Day 5: Vector Geoprocessing Tool
+CLI tool to perform clip, buffer, and dissolve operations on vector datasets.
+
+```bash
+# Clip to geometry
+python -m gis_bootcamp.vector_geoprocessing clip input.gpkg clip.gpkg -o output/clipped.gpkg
+
+# Buffer with 1000m distance
+python -m gis_bootcamp.vector_geoprocessing buffer input.gpkg -d 1000 -o output/buffered.gpkg
+
+# Dissolve all into one
+python -m gis_bootcamp.vector_geoprocessing dissolve input.gpkg -o output/dissolved.gpkg
+
+# Dissolve by attribute
+python -m gis_bootcamp.vector_geoprocessing dissolve input.gpkg -by region -o output/by_region.gpkg
+```
+
+Features:
+- **Clip**: Clip features to a clipping geometry, preserves all attributes
+- **Buffer**: Create buffer zones around geometries with optional dissolve
+- **Dissolve**: Dissolve features by attribute or all into one polygon
+- Explicit, deterministic operations with detailed logging
+- Preserves CRS and attributes through all operations
+
+Examples:
+```bash
+# Clip countries to a region
+python -m gis_bootcamp.vector_geoprocessing clip \\
+  data/countries.gpkg data/region.gpkg -o output/clipped.gpkg
+
+# Create 10km buffer around roads (projected CRS)
+python -m gis_bootcamp.vector_geoprocessing buffer \\
+  data/roads.shp -d 10000 -o output/buffered.gpkg
+
+# Buffer and dissolve into single polygon
+python -m gis_bootcamp.vector_geoprocessing buffer \\
+  data/points.gpkg -d 500 -ds -o output/merged_buffer.gpkg
+
+# Dissolve countries by continent
+python -m gis_bootcamp.vector_geoprocessing dissolve \\
+  data/countries.gpkg -by continent -o output/continents.gpkg
+```
+
 Run tests:
 ```bash
 python -m unittest discover tests
@@ -129,4 +172,5 @@ python -m unittest tests.test_geometry_inspector -v
 python -m unittest tests.test_vector_reprojection -v
 python -m unittest tests.test_spatial_join -v
 python -m unittest tests.test_geometry_validation -v
+python -m unittest tests.test_vector_geoprocessing -v
 ```

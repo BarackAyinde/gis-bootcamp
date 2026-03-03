@@ -222,3 +222,75 @@ python -m unittest tests.test_geometry_validation -v
 All 14 tests passing ✓
 
 ---
+
+### Day 5: Vector Geoprocessing Tool ✓
+
+**What it does:**
+CLI tool that performs three explicit, deterministic geoprocessing operations: clip, buffer, and dissolve. Each operation logs feature counts and operation details.
+
+**Operations:**
+
+1. **Clip**: Clip features to a clipping geometry
+   - Reduces feature count to only those within/intersecting clip boundary
+   - Preserves all attributes
+
+2. **Buffer**: Create buffer zones around geometries
+   - Fixed distance in CRS units
+   - Optional dissolve flag to merge all buffers into single polygon
+   - Preserves attributes (or aggregates if dissolved)
+
+3. **Dissolve**: Merge features based on attribute or all into one
+   - By attribute: groups features and merges boundaries
+   - Without attribute: merges all features into single polygon
+   - Aggregates data using "first" function
+
+**Code:**
+- `gis_bootcamp/vector_geoprocessing.py` — main module (400+ lines)
+- `tests/test_vector_geoprocessing.py` — full test suite (20+ test cases)
+
+**How to run:**
+
+Clip to geometry:
+```bash
+python -m gis_bootcamp.vector_geoprocessing clip input.gpkg clip.gpkg -o output/clipped.gpkg
+```
+
+Buffer 1000 units:
+```bash
+python -m gis_bootcamp.vector_geoprocessing buffer input.gpkg -d 1000 -o output/buffered.gpkg
+```
+
+Buffer with dissolve (merge all):
+```bash
+python -m gis_bootcamp.vector_geoprocessing buffer input.gpkg -d 500 -ds -o output/merged.gpkg
+```
+
+Dissolve by attribute:
+```bash
+python -m gis_bootcamp.vector_geoprocessing dissolve input.gpkg -by region -o output/by_region.gpkg
+```
+
+Dissolve all into one:
+```bash
+python -m gis_bootcamp.vector_geoprocessing dissolve input.gpkg -o output/merged.gpkg
+```
+
+Run tests:
+```bash
+python -m unittest tests.test_vector_geoprocessing -v
+```
+
+**What's tested:**
+- Clip operation (reduces feature count, preserves attributes/CRS)
+- Buffer operation with/without dissolve
+- Dissolve by attribute and without (all to one)
+- Feature count changes for each operation
+- CRS and attribute preservation
+- Invalid column error for dissolve
+- File not found errors (clip input, clip geometry, buffer input, dissolve input)
+- Empty dataset handling for all operations
+- Output directory auto-creation
+
+All 20 tests passing ✓
+
+---
