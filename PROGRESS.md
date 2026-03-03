@@ -1095,3 +1095,52 @@ python -m unittest tests.test_density_analysis -v
 - `scipy>=1.11.0` added to project dependencies
 
 All 23 tests passing ✓
+
+### Day 5: Static Cartographic Map Renderer ✓
+
+**What it does:**
+Renders one or more vector layers to a static map image using GeoPandas + matplotlib.
+Supports polygons, lines, and points in the same map. All layers are reprojected to
+a common CRS before rendering.
+
+**Outputs:**
+- PNG, SVG, PDF, or JPG image
+- Configurable size (figsize), resolution (DPI), title, and per-layer styling
+- Optional legend when layer dicts include a `"label"` key
+
+**Layer dict keys:** `path` (required), `color`, `edge_color`, `alpha`, `linewidth`, `markersize`, `label`, `zorder`
+
+**Result dict keys:** `output_path`, `output_format`, `layer_count`, `feature_count`, `crs`, `bbox`, `figsize`, `dpi`
+
+**Code:**
+- `gis_bootcamp/map_renderer.py` — main module, CLI entry point
+- `tests/test_map_renderer.py` — full test suite (26 test cases)
+
+**How to run:**
+```bash
+# Single layer
+python -m gis_bootcamp.map_renderer data/countries.gpkg -o output/map.png --title "World Map"
+
+# Multiple layers with colours
+python -m gis_bootcamp.map_renderer data/regions.gpkg data/cities.gpkg \
+    -o output/map.png --title "Regions and Cities" --dpi 300
+
+# Custom figure size
+python -m gis_bootcamp.map_renderer data/layer.gpkg -o output/map.svg --figsize 12 8
+
+# Per-layer styles from JSON file
+python -m gis_bootcamp.map_renderer data/l1.gpkg data/l2.gpkg \
+    -o output/map.png --styles styles.json
+
+# Run tests
+python -m unittest tests.test_map_renderer -v
+```
+
+**Key design notes:**
+- `matplotlib.use("Agg")` set at module load — non-interactive; safe for headless/server environments
+- All layers reprojected to first layer's CRS unless `--crs` / `target_crs` is specified
+- `pyproj.CRS.from_user_input()` used for CRS parsing (not `gpd.CRS` which doesn't exist)
+- `plt.close(fig)` called after save to prevent memory leaks in batch usage
+- `matplotlib>=3.7.0` added to project dependencies
+
+All 26 tests passing ✓
