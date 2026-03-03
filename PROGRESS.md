@@ -535,3 +535,76 @@ All 16 tests passing ✓
 - CRS mismatch detection and auto-reprojection via GeoPandas
 - Proper transform and metadata preservation
 - Nodata values carried through clipping operation
+
+---
+
+### Day 3: GeoTIFF → Cloud Optimized GeoTIFF (COG) ✓
+
+**What it does:**
+CLI tool that converts standard GeoTIFF to Cloud Optimized GeoTIFF (COG) format with internal overviews and tiling for efficient cloud-based access. Includes COG validation.
+
+**Inputs:**
+- GeoTIFF file
+- Output path
+- Optional: block size (default 512)
+- Optional: create and validate modes
+
+**Outputs:**
+- Cloud Optimized GeoTIFF with:
+  - Tiling (512x512 or custom blocks)
+  - Internal overviews (multi-scale levels)
+  - LZW compression
+  - Proper GeoTIFF structure
+
+**Code:**
+- `gis_bootcamp/geotiff_to_cog.py` — main module, CLI entry point
+- `tests/test_geotiff_to_cog.py` — full test suite
+
+**How to run:**
+
+Create COG:
+```bash
+geotiff_to_cog input.tif -o output_cog.tif
+geotiff_to_cog input.tif -o output_cog.tif -b 256
+geotiff_to_cog input.tif -o output_cog.tif -b 512 -v
+```
+
+Validate existing raster for COG compliance:
+```bash
+geotiff_to_cog raster.tif --validate
+```
+
+Create and validate output:
+```bash
+geotiff_to_cog input.tif -o output_cog.tif --validate-output
+```
+
+Run tests:
+```bash
+python -m unittest tests.test_geotiff_to_cog -v
+```
+
+**What's tested:**
+- COG creation on large rasters (1024×1024, 4096×4096)
+- COG creation on small rasters (256×256)
+- COG creation on non-square rasters
+- Custom block sizes
+- Overview level auto-computation
+- Output file creation and directory auto-creation
+- Metadata preservation (CRS, dtype, dimensions)
+- Compression application
+- COG validation (compliant rasters, non-compliant rasters)
+- Result dictionary structure
+- Error handling (missing input files)
+- Multiple COG creations from same input
+
+All 18 tests passing ✓
+
+**Real-world test:** ✓ Converted 256×256 test_dem.tif to COG, validated as COG-compliant with tiling, overviews, and LZW compression.
+
+**Key design:**
+- Auto-computed overview levels based on raster size
+- Tiling enabled with configurable block size
+- LZW compression for cloud efficiency
+- Validation checks: tiling, block size, overviews, compression
+- COG-compliant metadata structure
