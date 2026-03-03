@@ -741,3 +741,105 @@ All 15 tests passing ✓
 - Geometry types logged via `geom_type.value_counts()`
 - Output directory auto-created
 - `pyarrow>=14.0.0` added to project dependencies
+
+---
+
+### Day 6: Raster Processing Pipeline ✓
+
+**What it does:**
+End-of-week composition project that chains all 4 Week 2 raster tools into a single production-grade pipeline: inspect → mosaic → clip (optional) → COG → metadata JSON.
+
+**Pipeline stages:**
+1. **Inspect** — Extract and log metadata for each input raster
+2. **Mosaic** — Merge all inputs into `mosaic.tif` (with optional CRS reprojection)
+3. **Clip** (optional) — Clip mosaic to AOI via bbox or vector mask → `clipped.tif`
+4. **COG** — Convert to Cloud Optimized GeoTIFF → `output.cog.tif`
+5. **Metadata JSON** — Write structured pipeline summary → `metadata.json`
+
+**Inputs:**
+- One or more raster file paths
+- Output directory
+- Optional: `-bbox minx miny maxx maxy` or `-mask vector.gpkg`
+- Optional: `-crs EPSG:XXXX`, `-b block_size`
+
+**Outputs:**
+- `output.cog.tif` — final COG raster
+- `metadata.json` — pipeline summary (stages, dimensions, CRS, timestamps)
+
+**Code:**
+- `gis_bootcamp/raster_pipeline.py` — main pipeline module, CLI entry point
+- `tests/test_raster_pipeline.py` — full test suite (18 test cases)
+
+**How to run:**
+
+Inspect + mosaic + COG (no clip):
+```bash
+python -m gis_bootcamp.raster_pipeline tile1.tif tile2.tif -o output/pipeline/
+```
+
+Full pipeline with bbox clip:
+```bash
+python -m gis_bootcamp.raster_pipeline dem.tif -o output/pipeline/ -bbox -10 45 30 75
+```
+
+Full pipeline with vector mask:
+```bash
+python -m gis_bootcamp.raster_pipeline dem.tif -o output/pipeline/ -mask aoi.gpkg
+```
+
+Custom CRS and block size:
+```bash
+python -m gis_bootcamp.raster_pipeline *.tif -o output/pipeline/ -crs EPSG:3857 -b 256
+```
+
+Run tests:
+```bash
+python -m unittest tests.test_raster_pipeline -v
+```
+
+**What's tested:**
+- Single input, no clip (passthrough mosaic → COG)
+- Two inputs mosaicked then COG'd
+- Full pipeline with bbox clip (clip stage completed)
+- Full pipeline with vector mask clip
+- COG file exists at expected path in output dir
+- Metadata JSON exists at expected path in output dir
+- Metadata JSON top-level structure (11 required keys)
+- Metadata JSON stages structure (inspect/mosaic/clip/cog)
+- Clip stage marked "skipped" when no AOI provided
+- Clip stage marked "completed" + method="bbox" when bbox provided
+- 1024×1024 raster produces COG-valid output (overviews built)
+- Result dict structure (5 required keys)
+- Output directory auto-creation (nested)
+- mosaic.tif intermediate file present in output dir
+- input_count matches both result dict and metadata.json
+- Empty input list raises ValueError
+- Missing input raises FileNotFoundError
+- Both bbox and mask_path raises ValueError
+
+All 18 tests passing ✓
+
+**Key design:**
+- Imports core functions from all Week 2 tools (no reimplementation)
+- Clip step is optional — pipeline degrades gracefully to mosaic → COG if no AOI
+- `metadata.json` is always written last (pipeline summary, not log)
+- COG validity checked with `validate_cog()` and recorded in metadata
+- 1024×1024 test rasters used to ensure overviews are generated and COG is valid
+
+---
+
+## Week 2 Summary
+
+**Complete raster GIS toolset built and tested:**
+
+| Day | Tool | Purpose | Tests |
+|-----|------|---------|-------|
+| 1 | Raster Metadata Inspector | Inspect raster without loading pixels | 14 ✓ |
+| 2 | Raster Clipper | Clip by bbox or vector mask | 16 ✓ |
+| 3 | GeoTIFF → COG | Convert with tiling, overviews, compression | 18 ✓ |
+| 4 | Raster Mosaic | Merge N rasters with CRS reprojection | 14 ✓ |
+| 5 | Vector → GeoParquet | Convert vector to big-data format | 15 ✓ |
+| 6 | Raster Pipeline | Compose all raster tools | 18 ✓ |
+
+**Total Week 2: 95 unit tests, all passing ✓**
+**Grand total Weeks 1+2: 193 unit tests, all passing ✓**
