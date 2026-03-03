@@ -1469,3 +1469,56 @@ python -m unittest tests.test_gis_linter -v
 - Raster auto-detected by file extension (.tif, .tiff, .img, .vrt, .nc, .hdf, .h5)
 
 All 43 tests passing ✓
+
+### Day 5: Dockerized Geospatial Deployment ✓
+
+**What it does:**
+Packages the FastAPI Spatial API (`spatial_api.py`) into a production-ready
+Docker container. Multi-stage build keeps the runtime image lean. Includes
+a health check, non-root user, bind-mounted data/output directories, and
+`docker compose` support for local development.
+
+**Files:**
+- `Dockerfile` — multi-stage build (builder + runtime stages)
+- `docker-compose.yml` — service definition with volumes, restart policy, health check
+- `.dockerignore` — excludes venv, tests, output, .git, bytecode from build context
+- `tests/test_docker.py` — validates config structure and production entry point
+
+**Dockerfile design:**
+
+| Stage | Base | Purpose |
+|-------|------|---------|
+| `builder` | `python:3.12-slim-bookworm` | Installs all deps with `pip install .` into `/install` |
+| `runtime` | `python:3.12-slim-bookworm` | Copies installed packages; runs uvicorn as non-root |
+
+Key directives:
+- `EXPOSE 8000` — uvicorn port
+- `HEALTHCHECK` — polls `GET /health` every 30 s; 15 s startup grace, 3 retries
+- `adduser appuser --uid 1000` — non-root for security
+- `CMD ["python", "-m", "uvicorn", ..., "--workers", "1"]` — single worker (scale via replicas)
+- `libgomp1` runtime dep for OpenMP (numpy/scipy parallelism)
+
+**How to run:**
+```bash
+# Build and run directly
+docker build -t gis-bootcamp .
+docker run -p 8000:8000 -v $(pwd)/data:/app/data:ro -v $(pwd)/output:/app/output gis-bootcamp
+
+# Or with Docker Compose
+docker compose up --build
+
+# Hit the API
+curl http://localhost:8000/health
+# → {"status":"ok"}
+
+# Run deployment tests (no Docker daemon required)
+python -m unittest tests.test_docker -v
+```
+
+**Test coverage:**
+- 15 Dockerfile structure checks (stages, EXPOSE, CMD, HEALTHCHECK, non-root user, ...)
+- 9 docker-compose.yml checks (services, ports, volumes, restart, health check, ...)
+- 7 .dockerignore checks (venv, tests, .git, *.pyc, output, ...)
+- 11 production entry-point checks (all modules importable, /health endpoint works, ...)
+
+All 42 tests passing ✓  |  Full suite: 495 tests, all passing ✓
