@@ -1736,3 +1736,137 @@ python -m pytest tests/test_tile_clip_service.py -v
 
 All 50 tests passing ✓
 
+
+---
+
+### Option C: GIS Data Quality & Validation Toolkit ✓
+
+**What it does:**
+Enterprise-grade spatial data validation system with modular rules, JSON configuration,
+and structured reporting for CI/CD integration. Validates vector and raster datasets
+against configurable quality checks.
+
+**Validation Rules:**
+
+| Category | Check | Parameters | Purpose |
+|----------|-------|-----------|---------|
+| **Vector: CRS** | `crs` | `expected_crs` | Verify dataset CRS matches expected value |
+| **Vector: Geometry** | `geometry_validity` | — | All geometries are valid (no self-intersections) |
+| **Vector: Geometry** | `no_null_geometries` | — | No null or empty geometries |
+| **Vector: Features** | `feature_count` | `min_count`, `max_count` | Row count within range |
+| **Vector: Spatial** | `bbox` | `minx, miny, maxx, maxy` | All features within bounding box |
+| **Vector: Schema** | `columns` | `required` (list) | Required columns exist |
+| **Vector: Attributes** | `attribute_range` | `column, min_val, max_val` | Column values in range |
+| **Raster: CRS** | `crs` | `expected_crs` | Raster CRS matches expected |
+| **Raster: Dimensions** | `dimensions` | `width, height` | Pixel dimensions match |
+| **Raster: Bands** | `band_count` | `expected` | Number of bands matches |
+| **Raster: Metadata** | `nodata_defined` | — | No-data value is defined |
+| **Raster: Data** | `dtype` | `expected_dtype` | Band data type matches |
+
+**Core Components:**
+
+1. **CheckResult** dataclass - single check outcome with passed/failed status, message, details
+
+2. **QualityReport** dataclass - aggregated results with:
+   - `all_passed` property (True if all checks passed)
+   - `passed_count` / `failed_count` properties
+   - `summary` property (human-readable report)
+   - `to_json(path)` method (write JSON report)
+
+3. **Validation Functions** (2 registries):
+   - `VECTOR_CHECKS` — 7 reusable vector validation functions
+   - `RASTER_CHECKS` — 5 reusable raster validation functions
+   - Both take dataset/path + params, return CheckResult
+
+4. **Workflows:**
+   - `validate_vector(path, rules)` → list of CheckResult
+   - `validate_raster(path, rules)` → list of CheckResult
+   - `validate_from_config(config_path)` → QualityReport (loads JSON config)
+
+**Configuration Format (JSON):**
+```json
+{
+  "name": "parcels_validation",
+  "rules": [
+    {
+      "type": "vector",
+      "path": "data/parcels.gpkg",
+      "rules": [
+        {"check": "crs", "params": {"expected_crs": "EPSG:4326"}},
+        {"check": "geometry_validity"},
+        {"check": "no_null_geometries"},
+        {"check": "feature_count", "params": {"min_count": 100, "max_count": 10000}},
+        {"check": "bbox", "params": {"minx": -180, "miny": -90, "maxx": 180, "maxy": 90}},
+        {"check": "columns", "params": {"required": ["id", "area_m2"]}},
+        {"check": "attribute_range", "params": {"column": "area_m2", "min_val": 1}}
+      ]
+    },
+    {
+      "type": "raster",
+      "path": "data/dem.tif",
+      "rules": [
+        {"check": "crs", "params": {"expected_crs": "EPSG:3857"}},
+        {"check": "dimensions", "params": {"width": 512, "height": 512}},
+        {"check": "band_count", "params": {"expected": 1}},
+        {"check": "nodata_defined"},
+        {"check": "dtype", "params": {"expected_dtype": "float32"}}
+      ]
+    }
+  ]
+}
+```
+
+**Code:**
+- `gis_bootcamp/gis_data_quality.py` — Validation engine + registries + CLI
+- `tests/test_gis_data_quality.py` — full test suite (39 test cases)
+
+**How to run:**
+
+```bash
+# CLI (human-readable output)
+python -m gis_bootcamp.gis_data_quality validation.json
+
+# CLI (JSON report output)
+python -m gis_bootcamp.gis_data_quality validation.json --format json --output report.json
+
+# Verbose logging
+python -m gis_bootcamp.gis_data_quality validation.json -v
+
+# Exit code: 0 if all passed, 1 if any failed (for CI/CD)
+
+# Programmatic usage
+from gis_bootcamp.gis_data_quality import validate_from_config
+
+report = validate_from_config("validation.json")
+print(report.summary)
+if not report.all_passed:
+    report.to_json("failures.json")
+    sys.exit(1)
+
+# Direct function usage
+from gis_bootcamp.gis_data_quality import check_vector_crs, VECTOR_CHECKS
+
+import geopandas as gpd
+gdf = gpd.read_file("data.gpkg")
+gdf._file_path = "data.gpkg"  # Store path for error messages
+result = check_vector_crs(gdf, "EPSG:4326")
+print(result.passed, result.message)
+
+# Register custom check
+VECTOR_CHECKS["my_custom_check"] = my_check_function
+
+# Run tests
+python -m pytest tests/test_gis_data_quality.py -v
+```
+
+**Key design notes:**
+- Rule registry pattern: `VECTOR_CHECKS` and `RASTER_CHECKS` dicts map names to functions for extensibility
+- Modular functions are reusable independently (importable for batch validation, integration)
+- Validation is declarative: rules are data (JSON), not code
+- Fail-fast: no silent fixes, all violations reported explicitly
+- CheckResult captures full context: dataset path, check name, status, message, and detailed info dict
+- JSON reports enable CI/CD integration, machine-readable tracking
+- CLI exit codes (0/1) integrate with shell scripts and CI systems
+- Unknown checks are logged and skipped gracefully (no crash)
+
+All 39 tests passing ✓
