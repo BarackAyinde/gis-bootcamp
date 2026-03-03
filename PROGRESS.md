@@ -52,6 +52,52 @@ python -m unittest discover tests
 
 ---
 
-### Day 2: Vector Reprojection Tool (next)
+### Day 2: Vector Reprojection Tool ✓
+
+**What it does:**
+CLI tool that reads a vector file, validates it has a CRS, reprojects to a target EPSG code, and writes the output with all attributes preserved.
+
+**Inputs:**
+- Vector file (GeoPackage, Shapefile, GeoJSON)
+- Target EPSG code (e.g., EPSG:3857, EPSG:4269)
+- Output path
+
+**Outputs:**
+- Reprojected vector file (same format as input)
+- Console report showing source/target CRS, feature count, geometry types
+
+**Code:**
+- `gis_bootcamp/vector_reprojection.py` — main module
+- `tests/test_vector_reprojection.py` — full test suite (9 test cases)
+
+**How to run:**
+
+Reproject WGS84 to Web Mercator:
+```bash
+python -m gis_bootcamp.vector_reprojection data/roads.gpkg -t EPSG:3857 -o output/roads_3857.gpkg
+```
+
+Reproject to UTM:
+```bash
+python -m gis_bootcamp.vector_reprojection data/points.shp -t EPSG:32633 -o output/points_utm.shp
+```
+
+Run tests:
+```bash
+python -m unittest tests.test_vector_reprojection -v
+```
+
+**What's tested:**
+- Successful reprojection (WGS84 → Web Mercator, UTM)
+- Attribute preservation (all columns intact)
+- Geometry type preservation
+- Feature count preservation
+- CRS validation (missing CRS error handling)
+- EPSG format validation
+- File not found error handling
+- Empty dataset error handling
+- Output directory auto-creation
+
+All 9 tests passing ✓
 
 ---
