@@ -909,3 +909,72 @@ All 16 tests passing ✓ (all mocked — no real HTTP)
 - Per-row retry with exponential back-off (1s, 2s, ... between attempts)
 - `geocode_status` column makes success/failure queryable in downstream tools
 - `geopy>=2.4.0` added to project dependencies
+
+---
+
+### Day 2: Reverse Geocoder / Nearest-Feature Lookup ✓
+
+**What it does:**
+CLI tool that loads a point dataset and a reference dataset, enriches each point with attributes from the spatially matching or nearest reference feature, and logs match rates and unmatched counts.
+
+**Inputs:**
+- Point dataset (GPKG, Shapefile, GeoJSON)
+- Reference dataset (polygons, points, or lines)
+- Join mode: `nearest`, `within`, or `contains`
+- Output path
+
+**Outputs:**
+- Enriched point dataset with reference attributes and `match_status` column
+
+**Code:**
+- `gis_bootcamp/nearest_feature_lookup.py` — main module, CLI entry point
+- `tests/test_nearest_feature_lookup.py` — full test suite (19 test cases)
+
+**How to run:**
+
+Nearest feature (always matches):
+```bash
+python -m gis_bootcamp.nearest_feature_lookup points.gpkg reference.gpkg -o output/enriched.gpkg
+```
+
+Point-in-polygon:
+```bash
+python -m gis_bootcamp.nearest_feature_lookup points.gpkg polygons.gpkg -o output/enriched.gpkg -m within
+```
+
+Run tests:
+```bash
+python -m unittest tests.test_nearest_feature_lookup -v
+```
+
+**What's tested:**
+- nearest: all points matched (matched=N, unmatched=0)
+- nearest: reference attributes present in output
+- nearest: `match_distance` column added
+- nearest: works with point reference (not just polygons)
+- within: correct matched/unmatched split (2 inside, 1 outside)
+- within: match_rate calculated correctly (50.0%)
+- within: `match_status` column present with correct values
+- within: matched rows have reference attributes, unmatched have NaN
+- CRS mismatch auto-reprojected (reference → points CRS)
+- Output CRS matches points CRS
+- Original point attributes preserved
+- Output directory auto-creation (nested)
+- Result dict structure (5 required keys)
+- Feature count preserved (one row per input point)
+- Invalid mode raises ValueError
+- Missing points file raises FileNotFoundError
+- Missing reference file raises FileNotFoundError
+- Empty points dataset raises ValueError
+- Points without CRS raises ValueError
+
+All 19 tests passing ✓
+
+**Key design:**
+- `sjoin_nearest()` for nearest mode (STRtree spatial index, always matches)
+- `sjoin(predicate=...)` for within/contains (left join, unmatched rows preserved)
+- Deduplication after join (one output row per input point)
+- CRS alignment via `to_crs()` before join
+- `match_status` column: `matched` or `unmatched`
+- `match_distance` column added only for nearest mode (in CRS units)
+- Note: for accurate `match_distance`, reproject to a projected CRS first
